@@ -11,15 +11,20 @@ end
 local function DoAgeVerification()
 
     http.Get('//'..module.Domain..'/en/index/set_display/?display=A')
-
+    
 end
 
 function GetInfo()
-
-    info.Title = dom.SelectValue('//div[contains(@class,"title_content")]/h1')
-    info.Author = dom.SelectValue('//span[@class="writer"]/text()[1]')
-    info.Artist = dom.SelectValue('//span[@class="writer"]/text()[2]')
-    info.Tags = dom.SelectValue('//span[@class="type"]'):split('/')
+    info.Title =  dom.SelectValue('//h2[contains(@class,"font-bold") and contains(@class,"mt-3")]')
+    local authorArtist = dom.SelectValue('//p[contains(@class,"mt-3") and contains(@class,"text-gray-300")]')
+    if authorArtist ~= nil then
+        authorArtist = RegexReplace(authorArtist, '/', ',')--seem to use either / or | to separate author and artist
+        authorArtist = authorArtist:gsub("|", ",")
+        info.Author = authorArtist:match('^%s*([^,]+)')
+        info.Artist = authorArtist:match('^[^,]+,%s*(.+)$')
+    end
+    local tags = dom.SelectValues('//a[@data-toon-idx]')
+    info.Tags = RegexReplace(tags, '#', '')
     info.Language = url:regex('\\/(en|ko|sc|tc)\\/', 1)
     info.Summary = dom.SelectValue('//h2')
     info.Status = dom.SelectValue('//span[@class="date"]')
@@ -28,7 +33,7 @@ end
 
 function GetChapters()
 
-    for node in dom.SelectElements('//section[contains(@class, "ep-body")]//a') do
+    for node in dom.SelectElements('//ol[contains(@class, "list-ep")]//a') do
 
         local number = node.SelectValue('div[contains(@class, "cell-num")]'):trim()
         local title = node.SelectValue('div[contains(@class, "cell-title")]'):trim()
@@ -37,11 +42,12 @@ function GetChapters()
         chapters.Add(url, number .. ' - ' .. title)
 
     end
+    
 
 end
 
 function GetPages()
-
+    sleep(90000)
     if(dom.SelectValue('//meta[contains(@property, "og:url")]/@content'):contains('age_verification')) then
         
         DoAgeVerification()
@@ -51,10 +57,12 @@ function GetPages()
     end
 
     pages.AddRange(dom.SelectValues('//img[contains(@id, "set_image")]/@data-src'))
-
+    if(pages.Count() == 0) then
+        Fail(Error.CaptchaRequired.WithHelpLink("https://github.com/HDoujinDownloader/HDoujinDownloader/wiki/Downloading-from-Anchira"))
+    end
 end
 
---[[ function Login()
+function Login()
 
   -- Login is currently not working (login page 404s).
 
@@ -84,7 +92,7 @@ end
 
         -- Add the "click position" cookie, which is set when the mouse is clicked.
 
-        http.Cookies.Add('.toomics.com', 'cp', '0%7C0')
+        http.Cookies.Add('.toomics.com', 'cp', '631|326')
 
         local response = http.PostResponse(loginEndpoint)
 
@@ -96,4 +104,4 @@ end
 
     end
 
-end ]]
+end
