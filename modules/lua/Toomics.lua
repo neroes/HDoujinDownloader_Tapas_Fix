@@ -47,7 +47,6 @@ function GetChapters()
 end
 
 function GetPages()
-    sleep(90000)
     if(dom.SelectValue('//meta[contains(@property, "og:url")]/@content'):contains('age_verification')) then
         
         DoAgeVerification()
@@ -55,11 +54,14 @@ function GetPages()
         dom = Dom.New(http.Get(url))
 
     end
-
     pages.AddRange(dom.SelectValues('//img[contains(@id, "set_image")]/@data-src'))
     if(pages.Count() == 0) then
         Fail(Error.CaptchaRequired.WithHelpLink("https://github.com/HDoujinDownloader/HDoujinDownloader/wiki/Downloading-from-Anchira"))
     end
+    Log(url)
+    local episodeId, episodeNumber, seriesId = url:match("/code/(%d+)/ep/(%d+)/toon/(%d+)")
+    Log('Episode ID:' .. episodeId .. ' Episode Number:' .. episodeNumber .. ' Series ID:' .. seriesId)
+    --SendMockScrollTracking(seriesId, episodeNumber, episodeId)
 end
 
 function Login()
@@ -104,4 +106,90 @@ function Login()
 
     end
 
+end
+
+function SendMockScrollTracking(seriesId, episodeNumber, episodeId)
+    local url = 'https://toomics.com/en/webtoon/tr_dt'
+    local timestamps = GenerateRandomTimestamps(5, 10) -- 5 timestamps, up to 10 seconds ago
+    local scrollPositions = GenerateRandomScrollPositions(5, 100, 1000) -- 5 events, 1000 pixes each
+    local tracking_id = GetTrackingId(seriesId, episodeId, episodeNumber)
+    local timestamps = GenerateRandomTimestamps(count, 10)
+    Log('Generated timestamps:', timestamps)
+    Log('Generated scroll positions:', scrollPositions)
+    Log('Tracking ID:', tracking_id)
+    
+    local postData =
+        'tr_i=' .. tracking_id ..
+        '&ms%5B%5D=' .. scrollPositions[1] ..
+        '&ms%5B%5D=' .. scrollPositions[2] ..
+        '&ms%5B%5D=' .. scrollPositions[3] ..
+        '&ms%5B%5D=' .. scrollPositions[4] ..
+        '&ms%5B%5D=' .. scrollPositions[5] ..
+        '&ev%5B%D=scroll&ev%5B%5D=scroll&ev%5B%5D=scroll&ev%5B%5D=scroll&ev%5B%5D=scroll' ..
+        '&t_i=' .. seriesId ..
+        '&t_o=' .. episodeId ..
+        '&d_t=pc' ..
+        '&s_t%5B%5D=&s_t%5B%5D=&s_t%5B%5D=&s_t%5B%5D=&s_t%5B%5D=' ..
+        '&r_t%5B%5D=' .. timestamps[1] ..
+        '&r_t%5B%5D=' .. timestamps[2] ..
+        '&r_t%5B%5D=' .. timestamps[3] ..
+        '&r_t%5B%5D=' .. timestamps[4] ..
+        '&r_t%5B%5D=' .. timestamps[5]
+
+    local response = http.Post(url, postData, 'application/x-www-form-urlencoded')
+    Log('Scroll tracking POST data:', postData)
+    print('Scroll tracking POST response:', response)
+end
+
+function GenerateRandomTimestamps(count, maxSecondsAgo)
+    local timestamps = {}
+    local now = os.time()
+    for i = 1, count do
+        -- Random offset in the last maxSecondsAgo seconds
+        local offset = math.random(0, maxSecondsAgo)
+        local t = now - offset
+        -- Format: YYYY-MM-DD+HH:MM:SS.sss000 (with random milliseconds)
+        local ms = math.random(0,999)
+        local formatted = os.date('%Y-%m-%d+%H:%M:%S', t) .. string.format('.%03d000', ms)
+        table.insert(timestamps, formatted)
+    end
+    -- Sort so they're in chronological order
+    table.sort(timestamps)
+    return timestamps
+end
+
+function GenerateRandomScrollPositions(count, minValue, maxValue)
+    local positions = {}
+    local last = minValue
+    for i = 1, count do
+        -- Ensure each scroll position increases
+        local step = math.random(400, 800)
+        last = last + step + math.random()
+        table.insert(positions, string.format('%.6f', last))
+    end
+    return positions
+end
+
+function GetTrackingId(seriesId, episodeNumber, episodeId)
+    local url = 'https://toomics.com/en/webtoon/tr_init'
+    local now = os.date('%Y-%m-%d+%H:%M:%S', os.time()) .. '.000000'
+    local screen_w = 1226
+    local screen_h = 741
+    local postData =
+        't_i=' .. seriesId ..
+        '&a_i=' .. episodeNumber ..
+        '&t_o=' .. episodeId ..
+        '&d_t=pc' ..
+        '&r_t=' .. now ..
+        '&s_w=' .. screen_w ..
+        '&s_h=' .. screen_h ..
+        '&u_a=Mozilla%2F5.0+(Windows+NT+10.0%3B+Win64%3B+x64%3B+rv%3A140.0)+Gecko%2F20100101+Firefox%2F140.0'
+    
+    Log('Sending POST data for tracking ID')
+    local response = http.Post(url, postData)
+    Log('Response: ' .. response)
+    local json = Json.New(response)
+    local tr_idx = json.SelectValue('tr_idx')
+    Log('Tracking ID:', tr_idx)
+    return tr_idx
 end
