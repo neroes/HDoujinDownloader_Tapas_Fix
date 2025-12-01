@@ -100,8 +100,8 @@ function GetChapters()
         for i = 0, chapterNodes.Count() - 1 do
 
             local chapterUrl = chapterNodes[i].SelectValue('@href')
-            local chapterTitle = chapterNodes[i].SelectValue('.//span[contains(@class,"subj")]')
-
+            local chapterTitle = chapterNodes[i].SelectValue('.//span[contains(@class,"subj")]/span[1]')
+            
             chapters.Add(chapterUrl, chapterTitle)
 
         end
