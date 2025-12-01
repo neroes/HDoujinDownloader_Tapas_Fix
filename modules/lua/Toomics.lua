@@ -36,7 +36,7 @@ function GetChapters()
     for node in dom.SelectElements('//ol[contains(@class, "list-ep")]//a') do
 
         local number = node.SelectValue('div[contains(@class, "cell-num")]'):trim()
-        local title = node.SelectValue('div[contains(@class, "cell-title")]'):trim()
+        local title = node.SelectValue('div[contains(@class, "cell-title")]/strong[contains(@class, "line-3")]'):trim()
         local url = node.SelectValue('@onclick'):regex("(?:'login',\\s|href=)'(.+?)'", 1)
 
         chapters.Add(url, number .. ' - ' .. title)
